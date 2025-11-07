@@ -1,36 +1,25 @@
-#include <algorithm>
 #include <iostream>
-#include <ranges>
-#include <unordered_map>
 #include <vector>
 
-std::vector<int> countSort(const std::vector<int>& vec) {
+constexpr int kMaxVal = 1000000;
+
+void CountSort(std::vector<int>& vec) {
   if (vec.empty()) {
-    return {};
+    return;
   }
 
-  std::unordered_map<int, int> freq;
-  for (int v : vec) {
-    freq[v]++;
+  std::vector<int> keys(kMaxVal * 2 + 1);
+
+  for (int i = 0; i < vec.size(); i++) {
+    keys[vec[i] + kMaxVal]++;
   }
 
-  std::vector<int> keys;
-  keys.reserve(freq.size());
-  for (const auto& key : freq | std::views::keys) {
-    keys.push_back(key);
-  }
-  std::ranges::sort(keys);
-
-  std::vector<int> result;
-  result.reserve(vec.size());
-  for (int key : keys) {
-    int count = freq[key];
-    while (count-- > 0) {
-      result.push_back(key);
+  int j = 0;
+  for (int i = 0; i < keys.size(); i++) {
+    while (keys[i]-- > 0) {
+      vec[j++] = i - kMaxVal;
     }
   }
-
-  return result;
 }
 
 int main() {
@@ -45,8 +34,9 @@ int main() {
     std::cin >> vec[i];
   }
 
-  const auto res = countSort(vec);
-  for (const int elem : res) {
+  CountSort(vec);
+
+  for (const int elem : vec) {
     std::cout << elem << ' ';
   }
 }
