@@ -5,11 +5,11 @@
 constexpr size_t kSmall = 8;
 
 Node::Node(int t) : key(), children(), parent(nullptr), isLeaf(true), t(t) {
-  key.reserve(std::min<size_t>(std::max(1, 2 * t - 1), kSmall));
-  children.reserve(std::min<size_t>(std::max(1, 2 * t), kSmall));
+  key.reserve(2 * t - 1);
+  children.reserve(2 * t);
 }
 
-BTree::BTree(int t) : root(new Node(t)), t_(t), size_(0) {
+BTree::BTree(int t) : root(nullptr), t_(t), size_(0) {
 }
 
 void DeleteSubtree(const Node* node) {
@@ -26,88 +26,109 @@ BTree::~BTree() {
   DeleteSubtree(root);
 }
 
-Node* Split(Node*& node, int*& key) {
+bool Contains(const Node* node, const int key) {
+  for (const int v : node->key) {
+    if (v == key) {
+      return true;
+    }
+  }
+  return false;
+}
+
+bool ContainsTree(const Node* node, const int key) {
+  while (true) {
+    if (Contains(node, key)) {
+      return true;
+    }
+    if (node->isLeaf) {
+      break;
+    }
+
+    size_t i = 0;
+    while (i < node->key.size() && key > node->key[i]) {
+      i++;
+    }
+    node = node->children[i];
+  }
+  return false;
+}
+
+void SplitChild(Node* parent, const int pos, Node* node) {
   const int t = node->t;
   const auto new_node = new Node(t);
   new_node->isLeaf = node->isLeaf;
-  *key = node->key[t-1];
 
-  for (int i = t; i < 2 * t; i++) {
-    new_node->key.push_back(node->key[i]);
+  for (int j = 0; j < t - 1; ++j) {
+    new_node->key.push_back(node->key[j + t]);
   }
-  node->key.resize(t-1);
 
   if (!node->isLeaf) {
-    for (int i = t; i < 2 * t + 1; i++) {
-      new_node->children.push_back(node->children[i]);
+    for (int j = 0; j < t; ++j) {
+      new_node->children.push_back(node->children[j + t]);
+      new_node->children.back()->parent = new_node;
     }
+  }
+
+  node->key.resize(t - 1);
+  if (!node->isLeaf) {
     node->children.resize(t);
   }
-  return new_node;
+
+  parent->children.insert(parent->children.begin() + pos + 1, new_node);
+  new_node->parent = parent;
+
+  parent->key.insert(parent->key.begin() + pos, node->key[t - 1]);
 }
 
-Node* InsertNode(Node*& node, int*& key) {
-  if (!node->isLeaf) {
-    size_t i = 0;
-    while (i < node->key.size() && *key > node->key[i]) {
-      i++;
-    }
-    if (*key == node->key[i]) {
-      key = nullptr;
-      return nullptr;
-    }
-
-    const auto new_node = InsertNode(node->children[i], key);
-    if (new_node) {
-      node->children.push_back(new_node);
-      node->isLeaf = false;
-    }
+void InsertNotFullNode(Node* node, const int new_key, int& s) {
+  if (node->isLeaf) {
+    const auto it = std::ranges::lower_bound(node->key, new_key);
+    node->key.insert(it, new_key);
+    return;
   }
-
-  if (key == nullptr) {
-    return nullptr;
-  }
-
-  const int t = node->t;
-  if (std::find(node->key.begin(), node->key.end(), *key) != node->key.end()) {
-    key = nullptr;
-    return nullptr;
-  }
-  node->key.push_back(*key);
-  size_t i = node->key.size() - 1;
-
-  while (i > 0 && node->key[i] < node->key[i - 1]) {
-    std::swap(node->key[i - 1], node->key[i]);
-    std::swap(node->children[i], node->children[i + 1]);
+  int i = static_cast<int>(node->key.size()) - 1;
+  while (i >= 0 && new_key < node->key[i]) {
     i--;
   }
+  i++;
 
-  if (static_cast<int>(node->key.size()) <= 2 * t - 1) {
-    key = nullptr;
-    return nullptr;
+  Node* child = node->children[i];
+
+  if (static_cast<int>(child->key.size()) == 2 * node->t - 1) {
+
+    SplitChild(node, i, child);
+    s += 2;
+    if (new_key > node->key[i]) {
+      i++;
+    }
   }
-
-  const auto new_node = Split(node, key);
-  return new_node;
+  InsertNotFullNode(node->children[i], new_key, s);
 }
 
 void BTree::insert(int key) {
   if (root == nullptr) {
     root = new Node(t_);
     root->key.push_back(key);
+    size_ = 1;
     return;
   }
 
-  int* k = &key;
-
-  if (const auto new_node = InsertNode(root, k)) {
-    auto parent = new Node(t_);
-    parent->key.push_back(*k);
-    parent->children.push_back(root);
-    parent->children.push_back(new_node);
-    root = parent;
-    parent->isLeaf = false;
+  if (ContainsTree(root, key)) {
+    return;
   }
+
+  if (root->key.size() == static_cast<size_t>(2 * t_) - 1) {
+    auto s = new Node(t_);
+    s->isLeaf = false;
+    s->children.push_back(root);
+    root->parent = s;
+
+    SplitChild(s, 0, root);
+    size_ += 2;
+    root = s;
+  }
+
+  InsertNotFullNode(root, key, size_);
 }
 
 size_t SizeNode(const Node* node) {
