@@ -25,7 +25,6 @@ std::vector<std::vector<std::pair<int, int> > > BuildGraph() {
   add_edge(C, D, 1);
   add_edge(C, E, 4);
   add_edge(D, E, 2);
-
   return g;
 }
 
