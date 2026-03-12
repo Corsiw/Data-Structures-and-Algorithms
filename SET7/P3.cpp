@@ -3,94 +3,78 @@
 #include <unordered_map>
 #include <vector>
 
+
 struct Edge {
-  int to, cap, flow;
+  int to;
+  int rev;
+  bool used;
 };
 
-class Dinic {
-  int n_;
-  std::vector<std::vector<int> > adj_;
-  std::vector<Edge> edges_;
-  std::vector<int> level_;
-  std::vector<int> ptr_;
-  std::queue<int> q_;
+class Graph {
+public:
+  int n;
+  std::vector<std::vector<Edge> > adj;
 
-  bool Bfs(const int s, const int t) {
-    fill(level_.begin(), level_.end(), -1);
-    level_[s] = 0;
-    q_ = std::queue<int>();
-    q_.push(s);
+  explicit Graph(const int n) : n(n), adj(n) {
+  }
 
-    while (!q_.empty()) {
-      const int v = q_.front();
-      q_.pop();
+  void AddEdge(const int u, const int v) {
+    adj[u].push_back({v, static_cast<int>(adj[v].size()), false});
+    adj[v].push_back({u, static_cast<int>(adj[u].size()), false});
+  }
 
-      for (const int id : adj_[v]) {
-        if (edges_[id].cap - edges_[id].flow > 0 &&
-            level_[edges_[id].to] == -1) {
-          level_[edges_[id].to] = level_[v] + 1;
-          q_.push(edges_[id].to);
+  bool Dfs(const int u, const int t, std::vector<int>& parent, std::vector<int>& parent_edge,
+           std::vector<bool>& visited) {
+    if (u == t) {
+      return true;
+    }
+    visited[u] = true;
+    for (int i = 0; i < adj[u].size(); i++) {
+      Edge& e = adj[u][i];
+
+      if (!e.used && !visited[e.to]) {
+
+        parent[e.to] = u;
+        parent_edge[e.to] = i;
+
+        if (Dfs(e.to, t, parent, parent_edge, visited)) {
+          return true;
         }
       }
     }
-    return level_[t] != -1;
+    return false;
   }
 
-  int Dfs(const int v, const int t, const int pushed) {
-    if (!pushed) {
-      return 0;
-    }
-    if (v == t) {
-      return pushed;
-    }
-
-    for (int& cid = ptr_[v]; cid < adj_[v].size(); cid++) {
-      const int id = adj_[v][cid];
-      const int to = edges_[id].to;
-
-      if (level_[to] != level_[v] + 1 ||
-          edges_[id].cap - edges_[id].flow <= 0) {
-        continue;
-      }
-
-      const int tr = Dfs(to, t,
-                         std::min(pushed, edges_[id].cap - edges_[id].flow));
-      if (!tr) {
-        continue;
-      }
-
-      edges_[id].flow += tr;
-      edges_[id ^ 1].flow -= tr;
-      return tr;
-    }
-    return 0;
-  }
-
-public:
-  explicit Dinic(const int n) : n_(n), adj_(n), level_(n), ptr_(n) {
-  }
-
-  void AddEdge(const int u, const int v, const int cap) {
-    edges_.push_back({v, cap, 0});
-    edges_.push_back({u, cap, 0});
-    adj_[u].push_back(static_cast<int>(edges_.size()) - 2);
-    adj_[v].push_back(static_cast<int>(edges_.size()) - 1);
-  }
-
-  int MaxFlow(const int s, const int t) {
+  int MaxEdgeDisjointPaths(const int s, const int t) {
     int flow = 0;
-    while (Bfs(s, t)) {
-      fill(ptr_.begin(), ptr_.end(), 0);
-      while (const int pushed = Dfs(s, t, INT_MAX)) {
-        flow += pushed;
+    std::vector<int> parent(n);
+    std::vector<int> parent_edge(n);
+    std::vector<bool> visited(n);
+
+    while (true) {
+      std::fill(visited.begin(), visited.end(), false);
+      if (!Dfs(s, t, parent, parent_edge, visited)) {
+        break;
       }
+
+      int v = t;
+      while (v != s) {
+        const int u = parent[v];
+        const int idx = parent_edge[v];
+        adj[u][idx].used = true;
+        adj[v][adj[u][idx].rev].used = true;
+        v = u;
+      }
+      flow++;
     }
     return flow;
   }
 
-  void ResetFlows() {
-    for (auto& e : edges_) {
-      e.flow = 0;
+  void ResetUsed() {
+    for (auto& vec : adj) {
+      for (auto& e : vec) {
+        e.used = false;
+      }
     }
   }
 };
@@ -113,6 +97,7 @@ public:
   void Unite(const int x, const int y) {
     const int p1 = Find(x);
     const int p2 = Find(y);
+
     if (p1 != p2) {
       if (rank_[p1] < rank_[p2]) {
         parent_[p1] = p2;
@@ -144,9 +129,10 @@ int main() {
   int k = 0;
   std::cin >> n >> m >> k;
 
-  id.reserve(n);
-  std::vector<std::pair<int, int> > edges_list;
-  edges_list.reserve(m);
+  id.reserve(n * 2);
+  id.max_load_factor(0.7);
+
+  Graph graph(n);
   DSU dsu(n);
 
   for (int i = 0; i < m; i++) {
@@ -154,9 +140,10 @@ int main() {
     std::string s2;
     std::cin >> s1 >> s2;
 
-    int u = GetId(s1);
-    int v = GetId(s2);
-    edges_list.emplace_back(u, v);
+    const int u = GetId(s1);
+    const int v = GetId(s2);
+
+    graph.AddEdge(u, v);
     dsu.Unite(u, v);
   }
 
@@ -166,17 +153,21 @@ int main() {
     std::string s2;
     std::cin >> s1 >> s2;
 
-    if (!id.contains(s1) || !id.contains(s2) || c <= 0 || dsu.Find(id[s1]) != dsu.Find(id[s2])) {
+    if (c <= 0) {
       std::cout << 0 << "\n";
       continue;
     }
 
-    Dinic dinic(n);
-    for (auto& [fst, snd] : edges_list) {
-      dinic.AddEdge(fst, snd, 1);
+    const auto it1 = id.find(s1);
+    const auto it2 = id.find(s2);
+
+    if (dsu.Find(it1->second) != dsu.Find(it2->second)) {
+      std::cout << 0 << "\n";
+      continue;
     }
 
-    const int flow = dinic.MaxFlow(id[s1], id[s2]);
+    graph.ResetUsed();
+    const int flow = graph.MaxEdgeDisjointPaths(it1->second, it2->second);
     std::cout << flow << "\n";
 
     if (flow > 0) {
