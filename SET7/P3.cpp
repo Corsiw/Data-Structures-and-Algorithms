@@ -4,80 +4,60 @@
 #include <vector>
 
 
-struct Edge {
-  int to;
-  int rev;
-  bool used;
-};
+bool Bfs(const int s, const int t, const std::vector<std::vector<std::pair<int, bool> > >& graph,
+         std::vector<int>& parent) {
+  fill(parent.begin(), parent.end(), -1);
 
-class Graph {
-public:
-  int n;
-  std::vector<std::vector<Edge> > adj;
+  std::queue<int> q;
+  q.push(s);
 
-  explicit Graph(const int n) : n(n), adj(n) {
-  }
+  parent[s] = -2;
 
-  void AddEdge(const int u, const int v) {
-    adj[u].push_back({v, static_cast<int>(adj[v].size()), false});
-    adj[v].push_back({u, static_cast<int>(adj[u].size()), false});
-  }
+  while (!q.empty()) {
+    const int u = q.front();
+    q.pop();
 
-  bool Dfs(const int u, const int t, std::vector<int>& parent, std::vector<int>& parent_edge,
-           std::vector<bool>& visited) {
-    if (u == t) {
-      return true;
-    }
-    visited[u] = true;
-    for (int i = 0; i < adj[u].size(); i++) {
-      Edge& e = adj[u][i];
+    for (const auto& [v, cap] : graph[u]) {
+      if (parent[v] == -1 && !cap) {
+        parent[v] = u;
 
-      if (!e.used && !visited[e.to]) {
-
-        parent[e.to] = u;
-        parent_edge[e.to] = i;
-
-        if (Dfs(e.to, t, parent, parent_edge, visited)) {
+        if (v == t) {
           return true;
+        }
+        q.push(v);
+      }
+    }
+  }
+  return false;
+}
+
+int MaxFlow(const int s, const int t, std::vector<std::vector<std::pair<int, bool> > >& graph, const int n) {
+  int cur_flow = 0;
+
+  std::vector<int> parent(n);
+  while (Bfs(s, t, graph, parent)) {
+
+    for (int v = t; v != s; v = parent[v]) {
+
+      for (int i = 0; i < graph[v].size(); i++) {
+        if (graph[v][i].first == parent[v]) {
+          graph[v][i].second = true;
+          break;
+        }
+      }
+
+      for (int i = 0; i < graph[parent[v]].size(); i++) {
+        if (graph[parent[v]][i].first == v) {
+          graph[parent[v]][i].second = true;
+          break;
         }
       }
     }
-    return false;
+    cur_flow++;
   }
+  return cur_flow;
+}
 
-  int MaxEdgeDisjointPaths(const int s, const int t) {
-    int flow = 0;
-    std::vector<int> parent(n);
-    std::vector<int> parent_edge(n);
-    std::vector<bool> visited(n);
-
-    while (true) {
-      std::fill(visited.begin(), visited.end(), false);
-      if (!Dfs(s, t, parent, parent_edge, visited)) {
-        break;
-      }
-
-      int v = t;
-      while (v != s) {
-        const int u = parent[v];
-        const int idx = parent_edge[v];
-        adj[u][idx].used = true;
-        adj[v][adj[u][idx].rev].used = true;
-        v = u;
-      }
-      flow++;
-    }
-    return flow;
-  }
-
-  void ResetUsed() {
-    for (auto& vec : adj) {
-      for (auto& e : vec) {
-        e.used = false;
-      }
-    }
-  }
-};
 
 class DSU {
   std::vector<int> parent_;
@@ -132,8 +112,8 @@ int main() {
   id.reserve(n * 2);
   id.max_load_factor(0.7);
 
-  Graph graph(n);
-  DSU dsu(n);
+  std::vector<std::vector<std::pair<int, bool> > > graph(n);
+  // DSU dsu(n);
 
   for (int i = 0; i < m; i++) {
     std::string s1;
@@ -142,9 +122,10 @@ int main() {
 
     const int u = GetId(s1);
     const int v = GetId(s2);
+    graph[u].emplace_back(v, false);
+    graph[v].emplace_back(u, false);
 
-    graph.AddEdge(u, v);
-    dsu.Unite(u, v);
+    // dsu.Unite(u, v);
   }
 
   int c = 2;
@@ -161,13 +142,18 @@ int main() {
     const auto it1 = id.find(s1);
     const auto it2 = id.find(s2);
 
-    if (dsu.Find(it1->second) != dsu.Find(it2->second)) {
+    if (it1 == id.end() || it2 == id.end()) {
       std::cout << 0 << "\n";
       continue;
     }
 
-    graph.ResetUsed();
-    const int flow = graph.MaxEdgeDisjointPaths(it1->second, it2->second);
+    for (int ii = 0; ii < graph.size(); ii++) {
+      for (int jj = 0; jj < graph[ii].size(); jj++) {
+        graph[ii][jj].second = false;
+      }
+    }
+
+    const int flow = MaxFlow(it1->second, it2->second, graph, n);
     std::cout << flow << "\n";
 
     if (flow > 0) {
