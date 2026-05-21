@@ -1,28 +1,25 @@
-#include <cmath>
+#include <algorithm>
+#include <chrono>
 #include <cstdint>
+#include <fstream>
+#include <functional>
+#include <iostream>
 #include <random>
 #include <string>
 #include <vector>
-#include <algorithm>
-#include <chrono>
-#include <fstream>
-#include <functional>
-#include <iomanip>
-#include <iostream>
-#include <unordered_set>
 
 constexpr int kSeed = 52426967;
 
-static const std::string kAlphabet =
-    "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-    "abcdefghijklmnopqrstuvwxyz"
-    "0123456789"
-    "!@#%:;^&*()-";
+static const std::string kAlphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+                                     "abcdefghijklmnopqrstuvwxyz"
+                                     "0123456789"
+                                     "!@#%:;^&*()-";
 
 class StringGenerator {
 public:
-  explicit StringGenerator(const size_t sample_size, const uint32_t seed = std::random_device{}())
-    : sample_size_(sample_size), rng_(seed) {
+  explicit StringGenerator(const size_t sample_size,
+                           const uint32_t seed = std::random_device{}())
+      : sample_size_(sample_size), rng_(seed) {
 
     GenerateRandomSample();
     GenerateReversedSample();
@@ -41,13 +38,15 @@ public:
 
   std::vector<std::string> GetPrefixByCountAlmostSorted(size_t count) const {
     count = std::min(count, sample_size_);
-    return {almost_sorted_sample_.begin(), almost_sorted_sample_.begin() + count};
+    return {almost_sorted_sample_.begin(),
+            almost_sorted_sample_.begin() + count};
   }
 
 private:
   std::string GenerateRandomString() {
     std::uniform_int_distribution<int> len_dist(10, 200);
-    std::uniform_int_distribution<int> char_dist(0, static_cast<int>(kAlphabet.size()) - 1);
+    std::uniform_int_distribution<int> char_dist(
+        0, static_cast<int>(kAlphabet.size()) - 1);
 
     const int len = len_dist(rng_);
     std::string s;
@@ -71,7 +70,9 @@ private:
     for (size_t i = 0; i < sample_size_; ++i) {
       reversed_sample_.push_back(GenerateRandomString());
     }
-    std::ranges::sort(reversed_sample_, std::greater<std::string>());
+
+    std::sort(reversed_sample_.begin(), reversed_sample_.end(),
+              std::greater<std::string>());
   }
 
   void GenerateAlmostSortedSample() {
@@ -79,10 +80,11 @@ private:
     for (size_t i = 0; i < sample_size_; ++i) {
       almost_sorted_sample_.push_back(GenerateRandomString());
     }
-    std::ranges::sort(almost_sorted_sample_);
+    std::sort(almost_sorted_sample_.begin(), almost_sorted_sample_.end());
 
     const size_t swaps = almost_sorted_sample_.size() / 100;
-    std::uniform_int_distribution<int> dist(0, static_cast<int>(almost_sorted_sample_.size()) - 1);
+    std::uniform_int_distribution<int> dist(
+        0, static_cast<int>(almost_sorted_sample_.size()) - 1);
     for (int i = 0; i < swaps; ++i) {
       const int a = dist(rng_);
       const int b = dist(rng_);
@@ -108,12 +110,11 @@ class SortTester {
   int repeats_;
 
 public:
-  explicit SortTester(const int repeats): repeats_(repeats) {
-  }
+  explicit SortTester(const int repeats) : repeats_(repeats) {}
 
-  SortStats Measure(
-      const std::function<void(std::vector<std::string>&)>& sorter,
-      const std::vector<std::string>& base_array) const {
+  SortStats
+  Measure(const std::function<void(std::vector<std::string> &)> &sorter,
+          const std::vector<std::string> &base_array) const {
 
     std::vector<int64_t> times;
     std::vector<size_t> comparisons;
@@ -137,17 +138,14 @@ public:
       comparisons.push_back(g_char_comparisons);
     }
 
-    std::ranges::sort(times);
-    std::ranges::sort(comparisons);
+    std::sort(times.begin(), times.end());
+    std::sort(comparisons.begin(), comparisons.end());
 
-    return {
-        times[repeats_ / 2],
-        comparisons[repeats_ / 2]
-    };
+    return {times[repeats_ / 2], comparisons[repeats_ / 2]};
   }
 };
 
-bool LessOrEqual(const std::string& a, const std::string& b) {
+bool LessOrEqual(const std::string &a, const std::string &b) {
   const size_t min_len = std::min(a.size(), b.size());
 
   for (size_t i = 0; i < min_len; ++i) {
@@ -165,11 +163,12 @@ bool LessOrEqual(const std::string& a, const std::string& b) {
   return a.size() <= b.size();
 }
 
-int Partition(std::vector<std::string>& vec, const int l, const int r, std::mt19937& gen) {
+int Partition(std::vector<std::string> &vec, const int l, const int r,
+              std::mt19937 &gen) {
   std::uniform_int_distribution<int> dist(l, r);
   const int pivot_index = dist(gen);
   std::swap(vec[pivot_index], vec[r]);
-  const std::string& pivot = vec[r];
+  const std::string &pivot = vec[r];
 
   int i = l - 1;
   for (int j = l; j < r; ++j) {
@@ -182,7 +181,8 @@ int Partition(std::vector<std::string>& vec, const int l, const int r, std::mt19
   return i + 1;
 }
 
-void SimpleQuickSortImpl(std::vector<std::string>& arr, const int l, const int r, std::mt19937& rng) {
+void SimpleQuickSortImpl(std::vector<std::string> &arr, const int l,
+                         const int r, std::mt19937 &rng) {
   if (l >= r) {
     return;
   }
@@ -192,12 +192,13 @@ void SimpleQuickSortImpl(std::vector<std::string>& arr, const int l, const int r
   SimpleQuickSortImpl(arr, pivot + 1, r, rng);
 }
 
-void SimpleQuickSort(std::vector<std::string>& arr) {
+void SimpleQuickSort(std::vector<std::string> &arr) {
   std::mt19937 ran(kSeed);
   SimpleQuickSortImpl(arr, 0, static_cast<int>(arr.size()) - 1, ran);
 }
 
-void StringMerge(std::vector<std::string>& arr, const int l, const int mid, const int r, std::vector<std::string>& temp) {
+void StringMerge(std::vector<std::string> &arr, const int l, const int mid,
+                 const int r, std::vector<std::string> &temp) {
   int i = l;
   int j = mid + 1;
   int k = l;
@@ -219,8 +220,8 @@ void StringMerge(std::vector<std::string>& arr, const int l, const int mid, cons
   }
 }
 
-void SimpleMergeSortImpl(std::vector<std::string>& arr, const int left, const int right,
-                         std::vector<std::string>& temp) {
+void SimpleMergeSortImpl(std::vector<std::string> &arr, const int left,
+                         const int right, std::vector<std::string> &temp) {
   if (left >= right) {
     return;
   }
@@ -235,7 +236,7 @@ void SimpleMergeSortImpl(std::vector<std::string>& arr, const int left, const in
   StringMerge(arr, left, mid, right, temp);
 }
 
-void SimpleMergeSort(std::vector<std::string>& arr) {
+void SimpleMergeSort(std::vector<std::string> &arr) {
   if (arr.empty()) {
     return;
   }
@@ -248,129 +249,128 @@ struct StringLCP {
   int lcp;
 };
 
-std::pair<bool, int> LcpCompare(const std::string& a, const std::string& b, const int k) {
-  const size_t min_len = std::min(a.size(), b.size());
+std::pair<bool, int> LcpCompare(const std::string &a, const std::string &b,
+                                int known_lcp) {
 
-  int i = k;
-  for (; i < min_len; ++i) {
+  int i = known_lcp;
+
+  const int min_len = static_cast<int>(std::min(a.size(), b.size()));
+
+  while (i < min_len) {
+    ++g_char_comparisons;
+
     if (a[i] < b[i]) {
       return {true, i};
     }
+
     if (a[i] > b[i]) {
       return {false, i};
     }
+
+    ++i;
   }
 
-  if (a.size() <= b.size()) {
-    return {true, i};
-  }
-  return {false, i};
+  ++g_char_comparisons;
+
+  return {a.size() <= b.size(), i};
 }
 
-std::vector<StringLCP> StringMerge(const std::vector<StringLCP>& p, const std::vector<StringLCP>& q) {
+void StringMerge(std::vector<StringLCP> &arr, std::vector<StringLCP> &temp,
+                 int l, int mid, int r) {
 
-  int i = 0;
-  int j = 0;
+  for (int i = l; i <= r; ++i) {
+    temp[i] = arr[i];
+  }
 
-  const int m = static_cast<int>(p.size());
-  const int f = static_cast<int>(q.size());
+  int left = l;
+  int right = mid + 1;
+  int dst = l;
 
-  std::vector<StringLCP> r;
-  r.reserve(m + f);
-
-  while (i < m && j < f) {
-    const int ki = p[i].lcp;
-    const int pj = q[j].lcp;
+  while (left <= mid && right <= r) {
+    int ki = temp[left].lcp;
+    int pj = temp[right].lcp;
 
     if (ki > pj) {
-      r.push_back({p[i].str, ki});
-      i++;
+      arr[dst++] = temp[left++];
     } else if (ki < pj) {
-      r.push_back({q[j].str, pj});
-      j++;
+      arr[dst++] = temp[right++];
     } else {
+      auto [less, h] = LcpCompare(temp[left].str, temp[right].str, ki);
 
-      auto [is_less, h] =
-          LcpCompare(p[i].str, q[j].str, ki);
-
-      if (is_less) {
-        r.push_back({p[i].str, ki});
-        ++i;
-
-        if (j < f) {
-          const_cast<int&>(q[j].lcp) = h;
-        }
+      if (less) {
+        arr[dst++] = temp[left++];
       } else {
-        r.push_back({q[j].str, pj});
-        ++j;
+        arr[dst++] = temp[right++];
+      }
 
-        if (i < m) {
-          const_cast<int&>(p[i].lcp) = h;
-        }
+      // сохраняем найденный LCP
+      if (left <= mid) {
+        temp[left].lcp = h;
+      }
+
+      if (right <= r) {
+        temp[right].lcp = h;
       }
     }
   }
 
-  while (i < m) {
-    r.push_back(p[i]);
-    ++i;
+  while (left <= mid) {
+    arr[dst++] = temp[left++];
   }
 
-  while (j < f) {
-    r.push_back(q[j]);
-    ++j;
+  while (right <= r) {
+    arr[dst++] = temp[right++];
   }
 
-  if (!r.empty()) {
-    r[0].lcp = 0;
+  if (l == 0) {
+    arr[0].lcp = 0;
   }
-
-  return r;
 }
 
-std::vector<StringLCP> StringMergeSortImpl(std::vector<std::string>& arr) {
-  const int n = static_cast<int>(arr.size());
+void StringMergeSortImpl(std::vector<StringLCP> &arr,
+                         std::vector<StringLCP> &temp, int l, int r) {
 
-  if (n == 1) {
-    return
-        {{arr[0], 0}};
-  }
-
-  const int mid = n / 2;
-  std::vector<std::string> left(
-      arr.begin(),
-      arr.begin() + mid
-      );
-
-  std::vector<std::string> right(
-      arr.begin() + mid,
-      arr.end()
-      );
-
-  const auto p = StringMergeSortImpl(left);
-  const auto q = StringMergeSortImpl(right);
-
-  return StringMerge(p, q);
-}
-
-void StringMergeSort(std::vector<std::string>& arr) {
-  if (arr.empty()) {
+  if (l >= r) {
     return;
   }
-  const auto res = StringMergeSortImpl(arr);
-  for (int i = 0; i < res.size(); ++i) {
-    arr[i] = res[i].str;
+
+  int mid = l + (r - l) / 2;
+
+  StringMergeSortImpl(arr, temp, l, mid);
+  StringMergeSortImpl(arr, temp, mid + 1, r);
+
+  StringMerge(arr, temp, l, mid, r);
+}
+
+void StringMergeSort(std::vector<std::string> &strings) {
+  if (strings.empty()) {
+    return;
+  }
+
+  std::vector<StringLCP> arr(strings.size());
+
+  for (size_t i = 0; i < strings.size(); ++i) {
+    arr[i] = {strings[i], 0};
+  }
+
+  std::vector<StringLCP> temp(arr.size());
+
+  StringMergeSortImpl(arr, temp, 0, static_cast<int>(arr.size()) - 1);
+
+  for (size_t i = 0; i < arr.size(); ++i) {
+    strings[i] = std::move(arr[i].str);
   }
 }
 
-int CharAt(const std::string& s, const int d) {
+int CharAt(const std::string &s, const int d) {
   if (d < 0 || d >= s.size()) {
     return -1;
   }
   return s[d];
 }
 
-std::pair<int, int> Partition(std::vector<std::string>& vec, const int l, const int r, const int d, std::mt19937& gen) {
+std::pair<int, int> Partition(std::vector<std::string> &vec, const int l,
+                              const int r, const int d, std::mt19937 &gen) {
   std::uniform_int_distribution<int> dist(l, r);
   const int pivot_index = dist(gen);
   const int pivot = CharAt(vec[pivot_index], d);
@@ -379,6 +379,7 @@ std::pair<int, int> Partition(std::vector<std::string>& vec, const int l, const 
   int write_index_greater = r;
 
   for (int j = l; j <= write_index_greater;) {
+    g_char_comparisons++;
     if (vec[j][d] < pivot) {
       if (j == write_index_less) {
         j++;
@@ -386,18 +387,21 @@ std::pair<int, int> Partition(std::vector<std::string>& vec, const int l, const 
       } else {
         std::swap(vec[write_index_less++], vec[j++]);
       }
-    }
-    else if (vec[j][d] > pivot) {
-      std::swap(vec[write_index_greater--], vec[j]);
     } else {
-      j++;
+      g_char_comparisons++;
+      if (vec[j][d] > pivot) {
+        std::swap(vec[write_index_greater--], vec[j]);
+      } else {
+        j++;
+      }
     }
   }
 
   return {write_index_less, write_index_greater};
 }
 
-void StringQuickSortImpl(std::vector<std::string>& arr, const int l, const int r, const int d, std::mt19937& rng) {
+void StringQuickSortImpl(std::vector<std::string> &arr, const int l,
+                         const int r, const int d, std::mt19937 &rng) {
   if (l >= r) {
     return;
   }
@@ -408,94 +412,140 @@ void StringQuickSortImpl(std::vector<std::string>& arr, const int l, const int r
   StringQuickSortImpl(arr, snd + 1, r, d, rng);
 }
 
-void StringQuickSort(std::vector<std::string>& arr) {
+void StringQuickSort(std::vector<std::string> &arr) {
   std::mt19937 ran(kSeed);
   StringQuickSortImpl(arr, 0, static_cast<int>(arr.size()) - 1, 0, ran);
 }
 
 constexpr int kR = 256;
 
-void MSDRadixSortImpl(std::vector<std::string>& a, const int l, const int r, const int d) {
-  if (l >= r) {
+void MSDRadixSortImpl(std::vector<std::string> &a,
+                      std::vector<std::string> &aux, int l, int r, int d) {
+  if (r <= l) {
     return;
   }
-  std::vector<int> count(kR + 2, 0);
-  std::vector<std::string> aux(r - l + 1);
+
+  std::array<int, kR + 2> count{};
+  std::array<int, kR + 2> start{};
 
   for (int i = l; i <= r; ++i) {
-    const int c = CharAt(a[i], d);
-    count[c + 2]++;
+    ++count[CharAt(a[i], d) + 2];
   }
 
   for (int i = 0; i < kR + 1; ++i) {
     count[i + 1] += count[i];
   }
 
-  for (int i = l; i <= r; ++i) {
-    const int c = CharAt(a[i], d);
-    aux[count[c + 1]++] = a[i];
-  }
+  start = count;
 
   for (int i = l; i <= r; ++i) {
-    a[i] = aux[i - l];
-  }
-
-  for (int i = 0; i < kR; ++i) {
-    MSDRadixSortImpl(
-        a,
-        l + count[i],
-        l + count[i + 1] - 1,
-        d + 1
-        );
-  }
-}
-
-void MSDRadixSort(std::vector<std::string>& arr) {
-  MSDRadixSortImpl(arr, 0, static_cast<int>(arr.size()) - 1, 0);
-}
-
-void MSDRadixQuickSortImpl(std::vector<std::string>& a, const int l, const int r, const int d, std::mt19937& rng) {
-  if (l >= r) {
-    return;
-  }
-  std::vector<int> count(kR + 2, 0);
-  std::vector<std::string> aux(r - l + 1);
-
-  for (int i = l; i <= r; ++i) {
-    const int c = CharAt(a[i], d);
-    count[c + 2]++;
-  }
-
-  for (int i = 0; i < kR + 1; ++i) {
-    count[i + 1] += count[i];
+    int c = CharAt(a[i], d);
+    aux[l + count[c + 1]++] = std::move(a[i]);
   }
 
   for (int i = l; i <= r; ++i) {
-    const int c = CharAt(a[i], d);
-    aux[count[c + 1]++] = a[i];
+    a[i] = std::move(aux[i]);
   }
 
-  for (int i = l; i <= r; ++i) {
-    a[i] = aux[i - l];
-  }
+  for (int rdx = 1; rdx <= kR; ++rdx) {
+    int bucket_l = l + start[rdx - 1];
+    int bucket_r = l + start[rdx] - 1;
 
-  for (int i = 0; i < kR; ++i) {
-    if (count[i + 1] - count[i] < kAlphabet.size()) {
-      StringQuickSortImpl(a, l + count[i], l + count[i + 1] - 1, d + 1, rng);
+    if (bucket_l < bucket_r) {
+      MSDRadixSortImpl(a, aux, bucket_l, bucket_r, d + 1);
     }
-    MSDRadixQuickSortImpl(
+  }
+}
+
+void MSDRadixSort(std::vector<std::string> &arr) {
+  if (arr.empty()) {
+    return;
+  }
+
+  std::vector<std::string> aux(arr.size());
+
+  MSDRadixSortImpl(arr, aux, 0, static_cast<int>(arr.size()) - 1, 0);
+}
+
+constexpr int kQuickSortThreshold = 74;
+
+void MSDRadixQuickSortImpl(std::vector<std::string>& a,
+                           std::vector<std::string>& aux,
+                           int l,
+                           int r,
+                           int d,
+                           std::mt19937& rng) {
+  if (r <= l) {
+    return;
+  }
+
+  int size = r - l + 1;
+
+  if (size < kQuickSortThreshold) {
+    StringQuickSortImpl(
         a,
-        l + count[i],
-        l + count[i + 1] - 1,
-        d + 1,
-        rng
-        );
+        l,
+        r,
+        d,
+        rng);
+
+    return;
+  }
+
+  std::array<int, kR + 2> count{};
+  std::array<int, kR + 2> start{};
+
+  for (int i = l; i <= r; ++i) {
+    ++count[CharAt(a[i], d) + 2];
+  }
+
+  for (int i = 0; i < kR + 1; ++i) {
+    count[i + 1] += count[i];
+  }
+
+  start = count;
+
+  for (int i = l; i <= r; ++i) {
+    int c = CharAt(a[i], d);
+    aux[l + count[c + 1]++] = std::move(a[i]);
+  }
+
+  for (int i = l; i <= r; ++i) {
+    a[i] = std::move(aux[i]);
+  }
+
+  for (int rdx = 1; rdx <= kR; ++rdx) {
+    int bucket_l = l + start[rdx - 1];
+    int bucket_r = l + start[rdx] - 1;
+
+    if (bucket_l < bucket_r) {
+      MSDRadixQuickSortImpl(
+          a,
+          aux,
+          bucket_l,
+          bucket_r,
+          d + 1,
+          rng);
+    }
   }
 }
 
 void MSDRadixQuickSort(std::vector<std::string>& arr) {
-  std::mt19937 ran(kSeed);
-  MSDRadixQuickSortImpl(arr, 0, static_cast<int>(arr.size()) - 1, 0, ran);
+  if (arr.empty()) {
+    return;
+  }
+
+  std::vector<std::string> aux(arr.size());
+
+  std::mt19937 rng(kSeed);
+
+  MSDRadixQuickSortImpl(
+      arr,
+      aux,
+      0,
+      static_cast<int>(arr.size()) - 1,
+      0,
+      rng);
 }
 
 constexpr size_t kSampleSize = 3000;
@@ -504,9 +554,12 @@ constexpr size_t kSampleSizeStep = 100;
 
 void GenerateSimpleSortsResultCsv() {
   std::ofstream out("out2.csv");
-  std::streambuf* out_buf = std::cout.rdbuf();
+  std::streambuf *out_buf = std::cout.rdbuf();
   std::cout.rdbuf(out.rdbuf());
-  std::cout << "SampleSize,QSRandomTimeNs,QSRandomComp,QSReversedTimeNs,QSReversedComp,QSAlmostSortedTimeNs,QSAlmostSortedComp,MSRandomTimeNs,MSRandomComp,MSReversedTimeNs,MSReversedComp,MSAlmostSortedTimeNs,MSAlmostSortedComp\n";
+  std::cout << "SampleSize,QSRandomTimeNs,QSRandomComp,QSReversedTimeNs,"
+               "QSReversedComp,QSAlmostSortedTimeNs,QSAlmostSortedComp,"
+               "MSRandomTimeNs,MSRandomComp,MSReversedTimeNs,MSReversedComp,"
+               "MSAlmostSortedTimeNs,MSAlmostSortedComp\n";
 
   StringGenerator gen(kSampleSize);
   const SortTester tester(20);
@@ -538,27 +591,26 @@ void GenerateSimpleSortsResultCsv() {
 
 void GenerateStringSortsResultCsv() {
   std::ofstream out("out3.csv");
-  std::streambuf* out_buf = std::cout.rdbuf();
+  std::streambuf *out_buf = std::cout.rdbuf();
   std::cout.rdbuf(out.rdbuf());
 
-  std::cout
-      << "SampleSize,"
+  std::cout << "SampleSize,"
 
-      << "SMRandomTimeNs,SMRandomComp,"
-      << "SMReversedTimeNs,SMReversedComp,"
-      << "SMAlmostSortedTimeNs,SMAlmostSortedComp,"
+            << "SMRandomTimeNs,SMRandomComp,"
+            << "SMReversedTimeNs,SMReversedComp,"
+            << "SMAlmostSortedTimeNs,SMAlmostSortedComp,"
 
-      << "SQRandomTimeNs,SQRandomComp,"
-      << "SQReversedTimeNs,SQReversedComp,"
-      << "SQAlmostSortedTimeNs,SQAlmostSortedComp,"
+            << "SQRandomTimeNs,SQRandomComp,"
+            << "SQReversedTimeNs,SQReversedComp,"
+            << "SQAlmostSortedTimeNs,SQAlmostSortedComp,"
 
-      << "MSDRandomTimeNs,MSDRandomComp,"
-      << "MSDReversedTimeNs,MSDReversedComp,"
-      << "MSDAlmostSortedTimeNs,MSDAlmostSortedComp,"
+            << "MSDRandomTimeNs,MSDRandomComp,"
+            << "MSDReversedTimeNs,MSDReversedComp,"
+            << "MSDAlmostSortedTimeNs,MSDAlmostSortedComp,"
 
-      << "MSDHRandomTimeNs,MSDHRandomComp,"
-      << "MSDHReversedTimeNs,MSDHReversedComp,"
-      << "MSDHAlmostSortedTimeNs,MSDHAlmostSortedComp\n";
+            << "MSDHRandomTimeNs,MSDHRandomComp,"
+            << "MSDHReversedTimeNs,MSDHReversedComp,"
+            << "MSDHAlmostSortedTimeNs,MSDHAlmostSortedComp\n";
 
   StringGenerator gen(kSampleSize);
   const SortTester tester(20);
@@ -589,9 +641,7 @@ void GenerateStringSortsResultCsv() {
     std::cout << i;
 
     for (const auto [time_ns, char_comparisons] : res) {
-      std::cout
-          << "," << time_ns
-          << "," << char_comparisons;
+      std::cout << "," << time_ns << "," << char_comparisons;
     }
 
     std::cout << "\n";
