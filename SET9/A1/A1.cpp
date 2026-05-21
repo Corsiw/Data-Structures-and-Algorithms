@@ -244,121 +244,132 @@ void SimpleMergeSort(std::vector<std::string> &arr) {
   SimpleMergeSortImpl(arr, 0, static_cast<int>(arr.size()) - 1, temp);
 }
 
-struct StringLCP {
+class StringLCP {
+public:
   std::string str;
   int lcp;
 };
 
 std::pair<bool, int> LcpCompare(const std::string &a, const std::string &b,
-                                int known_lcp) {
+                                const int k) {
+  const size_t min_len = std::min(a.size(), b.size());
 
-  int i = known_lcp;
-
-  const int min_len = static_cast<int>(std::min(a.size(), b.size()));
-
-  while (i < min_len) {
-    ++g_char_comparisons;
-
+  int i = k;
+  for (; i < min_len; ++i) {
+    g_char_comparisons++;
     if (a[i] < b[i]) {
       return {true, i};
     }
-
+    g_char_comparisons++;
     if (a[i] > b[i]) {
       return {false, i};
     }
-
-    ++i;
   }
-
-  ++g_char_comparisons;
 
   return {a.size() <= b.size(), i};
 }
 
-void StringMerge(std::vector<StringLCP> &arr, std::vector<StringLCP> &temp,
-                 int l, int mid, int r) {
+void StringMerge(std::vector<StringLCP> &arr,
+                                   std::vector<StringLCP> &temp, const int l,
+                                   const int m, const int r) {
 
-  for (int i = l; i <= r; ++i) {
-    temp[i] = arr[i];
-  }
+  std::copy(arr.begin() + l, arr.begin() + r, temp.begin() + l);
 
-  int left = l;
-  int right = mid + 1;
-  int dst = l;
+  int i = l;
+  int j = m;
+  int k = l;
 
-  while (left <= mid && right <= r) {
-    int ki = temp[left].lcp;
-    int pj = temp[right].lcp;
+  int ki = temp[i].lcp;
+  int pj = temp[j].lcp;
+
+  while (i < m && j < r) {
 
     if (ki > pj) {
-      arr[dst++] = temp[left++];
+      arr[k++] = temp[i++];
+      if (i < m) {
+        ki = temp[i].lcp;
+      }
     } else if (ki < pj) {
-      arr[dst++] = temp[right++];
+      arr[k++] = temp[j++];
+      if (j < r) {
+        pj = temp[j].lcp;
+      }
     } else {
-      auto [less, h] = LcpCompare(temp[left].str, temp[right].str, ki);
 
-      if (less) {
-        arr[dst++] = temp[left++];
+      auto [is_less, h] = LcpCompare(temp[i].str, temp[j].str, ki);
+
+      if (is_less) {
+        arr[k++] = temp[i++];
+        if (i < m) {
+          ki = temp[i].lcp;
+        }
+
+        if (j < r) {
+          temp[j].lcp = h;
+          pj = h;
+        }
       } else {
-        arr[dst++] = temp[right++];
-      }
+        arr[k++] = temp[j++];
+        if (j < r) {
+          pj = temp[j].lcp;
+        }
 
-      // сохраняем найденный LCP
-      if (left <= mid) {
-        temp[left].lcp = h;
-      }
-
-      if (right <= r) {
-        temp[right].lcp = h;
+        if (i < m) {
+          temp[i].lcp = h;
+          ki = h;
+        }
       }
     }
   }
 
-  while (left <= mid) {
-    arr[dst++] = temp[left++];
+  while (i < m) {
+    arr[k++] = temp[i++];
   }
 
-  while (right <= r) {
-    arr[dst++] = temp[right++];
+  while (j < r) {
+    arr[k++] = temp[j++];
   }
 
-  if (l == 0) {
-    arr[0].lcp = 0;
+  if (l < r) {
+    arr[l].lcp = 0;
   }
 }
 
 void StringMergeSortImpl(std::vector<StringLCP> &arr,
-                         std::vector<StringLCP> &temp, int l, int r) {
+                         std::vector<StringLCP> &temp, const int l,
+                         const int r) {
 
-  if (l >= r) {
+  if (r - l <= 1) {
+    if (r - l == 1) {
+      arr[l].lcp = 0;
+    }
     return;
   }
 
-  int mid = l + (r - l) / 2;
+  const int mid = l + (r - l) / 2;
 
   StringMergeSortImpl(arr, temp, l, mid);
-  StringMergeSortImpl(arr, temp, mid + 1, r);
+  StringMergeSortImpl(arr, temp, mid, r);
 
   StringMerge(arr, temp, l, mid, r);
 }
 
-void StringMergeSort(std::vector<std::string> &strings) {
-  if (strings.empty()) {
+void StringMergeSort(std::vector<std::string> &arr) {
+  if (arr.size() < 2) {
     return;
   }
 
-  std::vector<StringLCP> arr(strings.size());
-
-  for (size_t i = 0; i < strings.size(); ++i) {
-    arr[i] = {strings[i], 0};
+  std::vector<StringLCP> data;
+  data.reserve(arr.size());
+  for (const auto &s : arr) {
+    data.push_back({s, 0});
   }
 
   std::vector<StringLCP> temp(arr.size());
 
-  StringMergeSortImpl(arr, temp, 0, static_cast<int>(arr.size()) - 1);
-
-  for (size_t i = 0; i < arr.size(); ++i) {
-    strings[i] = std::move(arr[i].str);
+  StringMergeSortImpl(data, temp, 0, static_cast<int>(data.size()));
+  for (int i = 0; i < data.size(); ++i) {
+    arr[i] = std::move(data[i].str);
   }
 }
 

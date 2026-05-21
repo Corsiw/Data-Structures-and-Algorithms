@@ -1,6 +1,7 @@
 #include <iosfwd>
 #include <iostream>
 #include <vector>
+#include <array>
 
 int CharAt(const std::string& s, int d) {
   if (d >= static_cast<int>(s.size())) {
@@ -12,43 +13,52 @@ int CharAt(const std::string& s, int d) {
 
 constexpr int kR = 256;
 
-void MSDRadixSortImpl(std::vector<std::string>& a, const int l, const int r, const int d) {
-  if (l >= r) {
+void MSDRadixSortImpl(std::vector<std::string> &a,
+                      std::vector<std::string> &aux, int l, int r, int d) {
+  if (r <= l) {
     return;
   }
-  std::vector<int> count(kR + 2, 0);
-  std::vector<std::string> aux(r - l + 1);
+
+  std::array<int, kR + 2> count{};
+  std::array<int, kR + 2> start{};
 
   for (int i = l; i <= r; ++i) {
-    const int c = CharAt(a[i], d);
-    count[c + 2]++;
+    ++count[CharAt(a[i], d) + 2];
   }
 
   for (int i = 0; i < kR + 1; ++i) {
     count[i + 1] += count[i];
   }
 
+  start = count;
+
   for (int i = l; i <= r; ++i) {
-    const int c = CharAt(a[i], d);
-    aux[count[c + 1]++] = a[i];
+    int c = CharAt(a[i], d);
+    aux[l + count[c + 1]++] = std::move(a[i]);
   }
 
   for (int i = l; i <= r; ++i) {
-    a[i] = aux[i - l];
+    a[i] = std::move(aux[i]);
   }
 
-  for (int i = 0; i < kR; ++i) {
-    MSDRadixSortImpl(
-        a,
-        l + count[i],
-        l + count[i + 1] - 1,
-        d + 1
-        );
+  for (int rdx = 1; rdx <= kR; ++rdx) {
+    int bucket_l = l + start[rdx - 1];
+    int bucket_r = l + start[rdx] - 1;
+
+    if (bucket_l < bucket_r) {
+      MSDRadixSortImpl(a, aux, bucket_l, bucket_r, d + 1);
+    }
   }
 }
 
-void MSDRadixSort(std::vector<std::string>& arr) {
-  MSDRadixSortImpl(arr, 0, static_cast<int>(arr.size()) - 1, 0);
+void MSDRadixSort(std::vector<std::string> &arr) {
+  if (arr.empty()) {
+    return;
+  }
+
+  std::vector<std::string> aux(arr.size());
+
+  MSDRadixSortImpl(arr, aux, 0, static_cast<int>(arr.size()) - 1, 0);
 }
 
 int main() {
