@@ -660,6 +660,7 @@ void GenerateStringSortsResultCsv() {
 
   std::cout.rdbuf(out_buf);
 }
+
 int main() {
   std::ios::sync_with_stdio(false);
   std::cin.tie(nullptr);
