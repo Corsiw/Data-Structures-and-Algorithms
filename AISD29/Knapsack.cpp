@@ -32,7 +32,7 @@ int64_t SolveKnapsack(const std::vector<Item>& items, const int w1, const int w2
   8 1 2
   15 4 4
   4 1 1
-  Цена 23, вес 5, объекм 6
+  Цена 23, вес 5, объем 6
 
   Тест 2
   6 10 12
