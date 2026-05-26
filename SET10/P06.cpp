@@ -24,6 +24,9 @@ int64_t SolveKnapsack(const std::vector<Item>& items, const int w1) {
 }
 
 int main() {
+  std::ios::sync_with_stdio(false);
+  std::cin.tie(nullptr);
+
   int n = 0;
   int w = 0;
   std::cin >> n >> w;
